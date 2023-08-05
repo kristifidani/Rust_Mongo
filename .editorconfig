@@ -1,0 +1,41 @@
+# http://editorconfig.org
+
+###############################################################################
+#
+# This is an example. Keep what you need and adapt it to your project, while
+# keeping in mind our established conventions.
+#
+###############################################################################
+
+root = true
+
+# Any
+[*]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+max_line_length = 100
+
+# Python
+[*.py]
+indent_size = 4
+
+# Golang
+[*.go]
+indent_style = tab
+indent_size = 1
+
+[*.sh]
+# see: https://github.com/mvdan/sh/blob/master/cmd/shfmt/shfmt.1.scd
+indent_style = space
+indent_size = 2
+shell_variant = bash
+binary_next_line = true  # like -bn
+switch_case_indent = true  # like -ci
+space_redirects = true  # like -sr
+keep_padding = true  # like -kp
+function_next_line = false  # like -fn
+
