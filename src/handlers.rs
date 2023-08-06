@@ -1,6 +1,6 @@
 use crate::db::DB;
 use serde::{Deserialize, Serialize};
-use warp::{http::StatusCode, reply::json, Rejection, Reply};
+use warp::{http::StatusCode, Rejection, Reply};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct BookRequest {
@@ -15,9 +15,10 @@ pub async fn create_book_handle(body: BookRequest, db: DB) -> Result<impl Reply,
     Ok(StatusCode::CREATED)
 }
 
-pub async fn book_list_handle(db: DB) -> Result<impl Reply, Rejection> {
+pub async fn fetch_books_handle(db: DB) -> Result<impl Reply, Rejection> {
     let books = db.fetch_books().await?;
-    Ok(json(&books))
+    println!("{:?}", books);
+    Ok(StatusCode::OK)
 }
 
 pub async fn edit_book_handle(
@@ -34,41 +35,67 @@ pub async fn delete_book_handle(id: String, db: DB) -> Result<impl Reply, Reject
     Ok(StatusCode::OK)
 }
 
-// mod tests {
-//     use super::*;
-//     #[allow(unused_imports)]
-//     use mockall::{automock, mock, predicate::*};
+#[allow(unused_imports)]
+mod tests {
+    use super::*;
+    use crate::db;
 
-//     #[cfg_attr(test, automock)]
-//     pub trait MockDB {
-//         fn create_book(&self, entry: &BookRequest) -> Result<(), Error>;
-//     }
-//     #[tokio::test]
-//     async fn test_create_book_handle() {
-//         let mut db_mock = MockMockDB::new();
-//         db_mock
-//             .expect_create_book()
-//             .with(eq(BookRequest {
-//                 name: "Test Book".to_owned(),
-//                 author: "Test Author".to_owned(),
-//                 number_pages: "100".to_owned(),
-//                 tags: vec!["tag1".to_owned(), "tag2".to_owned()],
-//             }))
-//             .times(1)
-//             .returning(|_| Ok(()));
+    #[tokio::test]
+    async fn test_create_book_handle() {
+        let mock_request = BookRequest {
+            name: "Sample Book".to_string(),
+            author: "John Doe".to_string(),
+            number_pages: 200.to_string(),
+            tags: vec!["fiction".to_string(), "adventure".to_string()],
+        };
 
-//         let resp = create_book_handle(
-//             BookRequest {
-//                 name: "Test Book".to_owned(),
-//                 author: "Test Author".to_owned(),
-//                 number_pages: "100".to_owned(),
-//                 tags: vec!["tag1".to_owned(), "tag2".to_owned()],
-//             },
-//             db_mock,
-//         )
-//         .await
-//         .expect("error while attempting to create a new book");
+        let db = db::DB::init().await.expect("failed to initialize mongodb");
 
-//         assert_eq!(resp, StatusCode::CREATED);
-//     }
-// }
+        let result = create_book_handle(mock_request, db.clone())
+            .await
+            .expect("failed to create a book");
+
+        assert_eq!(result.into_response().status(), StatusCode::CREATED);
+    }
+
+    #[tokio::test]
+    async fn test_delete_book_handle() {
+        let db = db::DB::init().await.expect("failed to initialize mongodb");
+
+        let book_id = "64cfb23ed9632a4599b4f5e0".to_string();
+        let result = delete_book_handle(book_id, db.clone())
+            .await
+            .expect("failed to delete a book");
+
+        assert_eq!(result.into_response().status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_edit_book_handle() {
+        let mock_request = BookRequest {
+            name: "Eddited Book".to_string(),
+            author: "John Doe".to_string(),
+            number_pages: 200.to_string(),
+            tags: vec!["fiction".to_string(), "adventure".to_string()],
+        };
+
+        let db = db::DB::init().await.expect("failed to initialize mongodb");
+        let book_id = "64cfadbd9b3a666fb0aeac15".to_string();
+        let result = edit_book_handle(book_id, mock_request, db.clone())
+            .await
+            .expect("failed to edit a book");
+
+        assert_eq!(result.into_response().status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_fetch_books_handle() {
+        let db = db::DB::init().await.expect("failed to initialize mongodb");
+
+        let result = fetch_books_handle(db.clone())
+            .await
+            .expect("failed to fetch books");
+
+        assert_eq!(result.into_response().status(), StatusCode::OK);
+    }
+}

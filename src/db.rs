@@ -1,20 +1,15 @@
 use crate::{errors::MongoDbErrors, handlers::BookRequest, Book};
-use futures::StreamExt;
+use futures::TryStreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId, Bson};
 use mongodb::{options::ClientOptions, Client, Collection};
 
-const DB_NAME: &str = "booky";
-const COLL: &str = "books";
-
-const ID: &str = "_id";
-const NAME: &str = "name";
-const AUTHOR: &str = "author";
-const NUMBER_PAGES: &str = "number_pages";
-const TAGS: &str = "tags";
+const DB_URL: &str = "mongodb://127.0.0.1:27017";
+const DB_NAME: &str = "library";
+const COLLECTION: &str = "books";
 
 #[derive(Clone, Debug)]
 pub struct DB {
-    pub client: Client,
+    client: Client,
 }
 
 impl DB {
@@ -24,48 +19,78 @@ impl DB {
     }
 
     async fn create_mongodb_client() -> mongodb::error::Result<Client> {
-        let mut client_options = ClientOptions::parse("mongodb://mongodb:27017").await?;
-        client_options.app_name = Some("booky".to_string());
+        let mut client_options = ClientOptions::parse(DB_URL.to_string()).await?;
+        client_options.app_name = Some("library".to_string());
         Client::with_options(client_options)
     }
 
-    pub async fn fetch_books(&self) -> Result<Vec<Book>, MongoDbErrors> {
-        let mut cursor = self
-            .get_collection()
-            .find(None, None)
-            .await
-            .map_err(|e| MongoDbErrors::MongoQueryError(e))?;
-        let mut result: Vec<Book> = Vec::new();
-        while let Some(doc) = cursor.next().await {
-            result.push(self.doc_to_book(&doc?)?);
-        }
-        Ok(result)
-    }
-
-    pub async fn create_book(&self, entry: &BookRequest) -> Result<(), MongoDbErrors> {
-        let number_pages = entry
+    pub async fn create_book(&self, book: &BookRequest) -> Result<(), MongoDbErrors> {
+        let number_pages = book
             .number_pages
             .parse::<i32>()
             .map_err(|e| MongoDbErrors::InvalidNumberPagesError(e))?;
 
-        let doc = doc! {
-            NAME: entry.name.clone(),
-            AUTHOR: entry.author.clone(),
-            NUMBER_PAGES: number_pages,
-            TAGS: entry.tags.clone()
+        let record = doc! {
+            "NAME": book.name.clone(),
+            "AUTHOR": book.author.clone(),
+            "NUMBER_PAGES": number_pages,
+            "TAGS": book.tags.clone()
         };
+
         self.get_collection()
-            .insert_one(doc, None)
+            .insert_one(record, None)
             .await
             .map_err(|e| MongoDbErrors::MongoQueryError(e))?;
         Ok(())
     }
 
+    pub async fn fetch_books(&self) -> Result<Vec<Book>, MongoDbErrors> {
+        let cursor = self
+            .get_collection()
+            .find(None, None)
+            .await
+            .map_err(|e| MongoDbErrors::MongoQueryError(e))?;
+
+        let books = cursor
+            .try_collect::<Vec<_>>()
+            .await
+            .map_err(|e| MongoDbErrors::MongoQueryError(e))?
+            .into_iter()
+            .map(|doc| {
+                let id = doc.get_object_id("_id")?.to_hex();
+                let name = doc.get_str("NAME")?.to_owned();
+                let author = doc.get_str("AUTHOR")?.to_owned();
+                let number_pages = doc.get_i32("NUMBER_PAGES")? as usize;
+                let tags = doc
+                    .get_array("TAGS")?
+                    .into_iter()
+                    .filter_map(|entry| {
+                        if let Bson::String(v) = entry {
+                            Some(v.to_owned())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<String>>();
+
+                Ok(Book {
+                    id,
+                    name,
+                    author,
+                    number_pages,
+                    tags,
+                })
+            })
+            .collect::<Result<Vec<_>, MongoDbErrors>>()?;
+
+        Ok(books)
+    }
+
     pub async fn delete_book(&self, id: &str) -> Result<(), MongoDbErrors> {
-        let oid =
+        let book_id =
             ObjectId::parse_str(id).map_err(|_| MongoDbErrors::InvalidIdError(id.to_owned()))?;
         let filter = doc! {
-            "_id": oid,
+            "_id": book_id,
         };
         self.get_collection()
             .delete_one(filter, None)
@@ -74,23 +99,26 @@ impl DB {
         Ok(())
     }
 
-    pub async fn edit_book(&self, id: &str, entry: &BookRequest) -> Result<(), MongoDbErrors> {
-        let oid =
+    pub async fn edit_book(&self, id: &str, book: &BookRequest) -> Result<(), MongoDbErrors> {
+        let book_id =
             ObjectId::parse_str(id).map_err(|_| MongoDbErrors::InvalidIdError(id.to_owned()))?;
         let query = doc! {
-            "_id": oid,
+            "_id": book_id,
         };
-        let number_pages = entry
+        let number_pages = book
             .number_pages
             .parse::<i32>()
             .map_err(|e| MongoDbErrors::InvalidNumberPagesError(e))?;
 
         let doc = doc! {
-            NAME: entry.name.clone(),
-            AUTHOR: entry.author.clone(),
-            NUMBER_PAGES: number_pages,
-            TAGS: entry.tags.clone()
+          "$set": {
+            "NAME": book.name.clone(),
+            "AUTHOR": book.author.clone(),
+            "NUMBER_PAGES": number_pages,
+            "TAGS": book.tags.clone()
+          }
         };
+
         self.get_collection()
             .update_one(query, doc, None)
             .await
@@ -99,31 +127,6 @@ impl DB {
     }
 
     fn get_collection(&self) -> Collection<Document> {
-        self.client.database(DB_NAME).collection(COLL)
-    }
-
-    fn doc_to_book(&self, doc: &Document) -> Result<Book, MongoDbErrors> {
-        let id = doc.get_object_id(ID)?;
-        let name = doc.get_str(NAME)?;
-        let author = doc.get_str(AUTHOR)?;
-        let number_pages = doc.get_i32(NUMBER_PAGES)?;
-        let tags = doc.get_array(TAGS)?;
-
-        let tags: Vec<String> = tags
-            .iter()
-            .filter_map(|entry| match entry {
-                Bson::String(v) => Some(v.to_owned()),
-                _ => None,
-            })
-            .collect();
-
-        let book = Book {
-            id: id.to_hex(),
-            name: name.to_owned(),
-            author: author.to_owned(),
-            number_pages: number_pages as usize,
-            tags,
-        };
-        Ok(book)
+        self.client.database(DB_NAME).collection(COLLECTION)
     }
 }

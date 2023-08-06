@@ -1,11 +1,12 @@
 version: '3.8'
 services:
   mongodb:
-    image: mongo:6-jammy
+    image: mongo:latest
+    container_name: mongodb-cont
     ports:
       - '27017:27017'
     volumes:
-      - dbdata6:/data/db
+      - mongodb_data_cont:/data/db
 
 volumes:
-  dbdata6:
+  mongodb_data_cont:
