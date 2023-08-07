@@ -7,8 +7,10 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1.0.181", features = ["derive"] }
+serde_json = "1.0.104"
 tokio = { version = "1.29.1", features = ["full"] }
 warp = "0.3.5"
 thiserror = "1.0.44"
 mongodb = "2.6.0"
 futures = { version = "0.3", default-features = false, features = ["async-await"] }
+hyper = "0.14.27"
