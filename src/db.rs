@@ -1,21 +1,11 @@
-use crate::{errors::MongoDbErrors, handlers::BookRequest};
+use crate::{errors::MongoDbErrors, handlers::Book};
 use futures::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId, Bson};
 use mongodb::{options::ClientOptions, Client, Collection};
-use serde::{Deserialize, Serialize};
 
 const DB_URL: &str = "mongodb://127.0.0.1:27017";
 const DB_NAME: &str = "library";
 const COLLECTION: &str = "books";
-
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-pub struct Book {
-    pub id: String,
-    pub name: String,
-    pub author: String,
-    pub number_pages: usize,
-    pub tags: Vec<String>,
-}
 
 #[derive(Clone, Debug)]
 pub struct DB {
@@ -34,7 +24,7 @@ impl DB {
         Client::with_options(client_options)
     }
 
-    pub async fn create_book(&self, book: &BookRequest) -> Result<Book, MongoDbErrors> {
+    pub async fn create_book(&self, book: &Book) -> Result<Book, MongoDbErrors> {
         let number_pages = book
             .number_pages
             .parse::<i32>()
@@ -54,7 +44,7 @@ impl DB {
                         id: inserted_id.to_hex(),
                         name: book.name.clone(),
                         author: book.author.clone(),
-                        number_pages: number_pages as usize,
+                        number_pages: number_pages.to_string(),
                         tags: book.tags.clone(),
                     })
                 } else {
@@ -104,7 +94,7 @@ impl DB {
         }
     }
 
-    pub async fn edit_book(&self, id: &str, book: &BookRequest) -> Result<Book, MongoDbErrors> {
+    pub async fn edit_book(&self, id: &str, book: &Book) -> Result<Book, MongoDbErrors> {
         let book_id =
             ObjectId::parse_str(id).map_err(|_| MongoDbErrors::InvalidIdError(id.to_owned()))?;
         let filter = doc! {
@@ -132,7 +122,7 @@ impl DB {
                         id: book_id.to_hex(),
                         name: book.name.clone(),
                         author: book.author.clone(),
-                        number_pages: number_pages as usize,
+                        number_pages: number_pages.to_string(),
                         tags: book.tags.clone(),
                     })
                 } else {
@@ -154,8 +144,7 @@ impl DB {
         let id = doc.get_object_id("_id")?.to_hex();
         let name = doc.get_str("NAME")?.to_owned();
         let author = doc.get_str("AUTHOR")?.to_owned();
-        let number_pages = doc.get_i32("NUMBER_PAGES")? as usize;
-
+        let number_pages = doc.get_i32("NUMBER_PAGES")?.to_string();
         let tags = doc
             .get_array("TAGS")?
             .iter()

@@ -6,8 +6,9 @@ use warp::{
     Rejection, Reply,
 };
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct BookRequest {
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub struct Book {
+    pub id: String,
     pub name: String,
     pub author: String,
     pub number_pages: String,
@@ -19,7 +20,7 @@ pub struct Payload<T> {
     pub data: Box<T>,
 }
 
-pub async fn create_book_handle(body: BookRequest, db: DB) -> Result<impl Reply, Rejection> {
+pub async fn create_book_handle(body: Book, db: DB) -> Result<impl Reply, Rejection> {
     let created_book = db.create_book(&body).await?;
 
     Ok(with_status(
@@ -41,11 +42,7 @@ pub async fn fetch_books_handle(db: DB) -> Result<impl Reply, Rejection> {
     ))
 }
 
-pub async fn edit_book_handle(
-    id: String,
-    body: BookRequest,
-    db: DB,
-) -> Result<impl Reply, Rejection> {
+pub async fn edit_book_handle(id: String, body: Book, db: DB) -> Result<impl Reply, Rejection> {
     let updated_book = db.edit_book(&id, &body).await?;
 
     Ok(with_status(
@@ -100,7 +97,8 @@ mod tests {
     async fn test_create_book_handle() {
         let db = db::DB::init().await.expect("failed to initialize mongodb");
 
-        let mock_request = BookRequest {
+        let mock_request = Book {
+            id: "123".to_string(), //this will be ignored
             name: "Sample Book".to_string(),
             author: "John Doe".to_string(),
             number_pages: 200.to_string(),
@@ -128,7 +126,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_book_handle() {
-        let mock_request = BookRequest {
+        let mock_request = Book {
+            id: "123".to_string(), //this will be ignored
             name: "Eddited Book".to_string(),
             author: "John Doe".to_string(),
             number_pages: 200.to_string(),

@@ -44,7 +44,8 @@ async fn test_create_book_route() {
         .and(with_db(db.clone()))
         .and_then(create_book_handle);
 
-    let book_request = BookRequest {
+    let book_request = Book {
+        id: "123".to_string(), //this will be ignored
         name: "Test Book".to_string(),
         author: "Test Author".to_string(),
         number_pages: "100".to_string(),
@@ -88,7 +89,8 @@ async fn test_edit_book_route() {
         .and(with_db(db.clone()))
         .and_then(edit_book_handle);
 
-    let book_request = BookRequest {
+    let book_request = Book {
+        id: "123".to_string(), //this will be ignored
         name: "Updated Book".to_string(),
         author: "Updated Author".to_string(),
         number_pages: "200".to_string(),
