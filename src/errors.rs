@@ -1,19 +1,18 @@
 use mongodb::bson;
 use serde::Serialize;
+use std::num::ParseIntError;
 use thiserror::Error;
 use warp::{http::StatusCode, reject::Reject, reply, Rejection, Reply};
-
-use std::num::ParseIntError;
 
 #[derive(Debug, Error)]
 pub enum MongoDbErrors {
     #[error("mongodb error: {0}")]
     MongoError(#[from] mongodb::error::Error),
-    #[error("error during mongodb query: {0}")]
+    #[error("mongodb query error: {0}")]
     MongoQueryError(mongodb::error::Error),
-    #[error("could not access field in document: {0}")]
+    #[error("mongodb data access error: {0}")]
     MongoDataError(#[from] bson::document::ValueAccessError),
-    #[error("invalid id used: {0}")]
+    #[error("invalid record id: {0}")]
     InvalidIdError(String),
     #[error("invalid number of pages: {0}")]
     InvalidNumberPagesError(ParseIntError),
@@ -26,32 +25,27 @@ struct ErrorResponse {
 
 impl Reject for MongoDbErrors {}
 
-pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
-    let code: StatusCode;
-    let message: &str;
-
-    if err.is_not_found() {
-        code = StatusCode::NOT_FOUND;
-        message = "Not Found";
-    } else if let Some(_) = err.find::<warp::filters::body::BodyDeserializeError>() {
-        code = StatusCode::BAD_REQUEST;
-        message = "Invalid Body";
-    } else if let Some(e) = err.find::<MongoDbErrors>() {
-        match e {
-            _ => {
-                println!("not handled application error: {:?}", err);
-                code = StatusCode::INTERNAL_SERVER_ERROR;
-                message = "Internal Server Error";
-            }
+pub async fn _handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
+    let (code, message) = match () {
+        _ if err.is_not_found() => (StatusCode::NOT_FOUND, "Error not found"),
+        _ if err
+            .find::<warp::filters::body::BodyDeserializeError>()
+            .is_some() =>
+        {
+            (StatusCode::BAD_REQUEST, "Invalid request")
         }
-    } else if let Some(_) = err.find::<warp::reject::MethodNotAllowed>() {
-        code = StatusCode::METHOD_NOT_ALLOWED;
-        message = "Method not allowed";
-    } else {
-        println!("not handled error: {:?}", err);
-        code = StatusCode::INTERNAL_SERVER_ERROR;
-        message = "Internal Server Error";
-    }
+        _ if err.find::<MongoDbErrors>().is_some() => {
+            println!("not handled application error: {:?}", err);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
+        }
+        _ if err.find::<warp::reject::MethodNotAllowed>().is_some() => {
+            (StatusCode::METHOD_NOT_ALLOWED, "Method not allowed")
+        }
+        _ => {
+            println!("not handled error: {:?}", err);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
+        }
+    };
 
     let error_message = reply::json(&ErrorResponse {
         message: message.into(),

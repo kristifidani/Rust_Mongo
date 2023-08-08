@@ -1,11 +1,8 @@
 use crate::{errors::MongoDbErrors, handlers::Book};
+use dotenv::dotenv;
 use futures::StreamExt;
 use mongodb::bson::{doc, document::Document, oid::ObjectId, Bson};
 use mongodb::{options::ClientOptions, Client, Collection};
-
-const DB_URL: &str = "mongodb://127.0.0.1:27017";
-const DB_NAME: &str = "library";
-const COLLECTION: &str = "books";
 
 #[derive(Clone, Debug)]
 pub struct DB {
@@ -19,9 +16,19 @@ impl DB {
     }
 
     async fn create_mongodb_client() -> mongodb::error::Result<Client> {
-        let mut client_options = ClientOptions::parse(DB_URL.to_string()).await?;
+        dotenv().ok();
+        let mongodb_url = dotenv::var("DB_URL").expect("mongodb url not found");
+        let mut client_options = ClientOptions::parse(mongodb_url).await?;
         client_options.app_name = Some("library".to_string());
         Client::with_options(client_options)
+    }
+
+    fn get_collection(&self) -> Collection<Document> {
+        let mongodb_name = dotenv::var("DB_NAME").expect("mongodb name not found");
+        let mongodb_collection = dotenv::var("COLLECTION").expect("mongodb collection not found");
+        self.client
+            .database(mongodb_name.as_str())
+            .collection(mongodb_collection.as_str())
     }
 
     pub async fn create_book(&self, book: &Book) -> Result<Book, MongoDbErrors> {
@@ -134,10 +141,6 @@ impl DB {
             }
             Err(e) => Err(MongoDbErrors::MongoQueryError(e)),
         }
-    }
-
-    fn get_collection(&self) -> Collection<Document> {
-        self.client.database(DB_NAME).collection(COLLECTION)
     }
 
     async fn convert_db_document_to_book(&self, doc: &Document) -> Result<Book, MongoDbErrors> {

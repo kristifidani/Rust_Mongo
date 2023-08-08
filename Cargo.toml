@@ -14,3 +14,4 @@ thiserror = "1.0.44"
 mongodb = "2.6.0"
 futures = { version = "0.3", default-features = false, features = ["async-await"] }
 hyper = "0.14.27"
+dotenv = "0.15.0"
