@@ -35,15 +35,11 @@ Before you begin, ensure you have met the following requirements:
 
 ## Test
 
-Give the instructions to test the project.
-
 - Start docker containers: `docker-compose up -d`
 - Run unit-tests with: `cargo test --bin rust-mongo -- --nocapture`
 - Run integration tests with: `cargo test --test integration_test -- --nocapture`
 
 ## Build
-
-Give the instructions to build the project.
 
 - Build the project with: `cargo build`
 - Run the project with: `cargo run`
