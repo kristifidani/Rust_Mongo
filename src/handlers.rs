@@ -97,15 +97,15 @@ mod tests {
     async fn test_create_book_handle() {
         let db = db::DB::init().await.expect("failed to initialize mongodb");
 
-        let mock_request = Book {
-            id: "123".to_string(), //this will be ignored
+        let new_book = Book {
+            id: "1".to_string(),
             name: "Sample Book".to_string(),
             author: "John Doe".to_string(),
             number_pages: 200.to_string(),
             tags: vec!["fiction".to_string(), "adventure".to_string()],
         };
 
-        let result = create_book_handle(mock_request, db.clone())
+        let result = create_book_handle(new_book, db.clone())
             .await
             .expect("failed to create a book");
 
@@ -126,10 +126,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_edit_book_handle() {
-        let mock_request = Book {
-            id: "123".to_string(), //this will be ignored
-            name: "Eddited Book".to_string(),
-            author: "John Doe".to_string(),
+        let edit_book = Book {
+            id: "1".to_string(),
+            name: "Edited name".to_string(),
+            author: "Edited author".to_string(),
             number_pages: 200.to_string(),
             tags: vec!["fiction".to_string(), "adventure".to_string()],
         };
@@ -137,7 +137,7 @@ mod tests {
         let db = db::DB::init().await.expect("failed to initialize mongodb");
         let book_id = get_book_id(db.clone()).await;
 
-        let result = edit_book_handle(book_id, mock_request, db.clone())
+        let result = edit_book_handle(book_id, edit_book, db.clone())
             .await
             .expect("failed to edit a book");
 

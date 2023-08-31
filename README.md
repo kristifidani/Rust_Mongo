@@ -2,25 +2,25 @@
 
 An HTTP server build with Warp light-weight framework that provides CRUD operations with MongoDB.
 
-#### Create a Book
+#### Create book
 
 - **HTTP Method**: POST
 - **URL Path**: `http://localhost:8080/book`
 - **Description**: Create a new book by providing book details in the request body.
 
-#### Fetch All Books
+#### Fetch books
 
 - **HTTP Method**: GET
 - **URL Path**: `http://localhost:8080/books`
 - **Description**: Retrieve a list of all books.
 
-#### Edit a Book
+#### Edit book
 
 - **HTTP Method**: PUT
 - **URL Path**: `http://localhost:8080/book/{id}`
 - **Description**: Edit a specific book by providing its ID in the URL path.
 
-#### Delete a Book
+#### Delete book
 
 - **HTTP Method**: DELETE
 - **URL Path**: `http://localhost:8080/book/{id}`
@@ -47,11 +47,11 @@ Before you begin, ensure you have met the following requirements:
 ## Usage
 
 1. Start docker containers: `docker-compose up -d`
-1. Run the project with: `cargo run`
-1. Create book: `curl -X POST http://localhost:8080/book -H 'Content-Type: application/json' -d '{"id":"1","name":"test name","author":"test author","number_pages":"100","tags":["tag1","tag2"]}'`
-1. Get books: `curl -X GET http://localhost:8080/books`
-1. Update book using its MongoDB generated ID: `curl -X PUT http://localhost:8080/book/64ee02b84cd1397f4bb25c20 -H 'Content-Type: application/json' -d '{"id":"1","name":"update name","author":"update author","number_pages":"200","tags":["utag1","utag2"]}'`
-1. Delete book using its MongoDB generated ID: `curl -X DELETE http://localhost:8080/book/64ee02b84cd1397f4bb25c20`
+1. Run the project: `cargo run`
+1. Create book: `cd script/ && ./create_book.sh`
+1. Fetch books: `cd script/ && ./fetch_books.sh`
+1. Edit book using its MongoDB generated ID: `cd script/ && ./edit_book.sh`
+1. Delete book using its MongoDB generated ID: `cd script/ && ./delete_book.sh`
 
 ## Useful Docker and Mongo commands
 
