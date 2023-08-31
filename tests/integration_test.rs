@@ -49,7 +49,9 @@ async fn test_fetch_books_route() {
 #[tokio::test]
 async fn test_edit_book_route() {
     let db = DB::init().await.expect("failed to initialize mongodb");
-    let book_id = get_book_id(db.clone()).await;
+    let book_id = get_book_id(db.clone())
+        .await
+        .expect("failed to edit a book");
     let edit_book_route = warp::path!("book" / String)
         .and(warp::put())
         .and(warp::body::json())
@@ -69,7 +71,9 @@ async fn test_edit_book_route() {
 #[tokio::test]
 async fn test_delete_book_route() {
     let db = DB::init().await.expect("failed to initialize mongodb");
-    let book_id = get_book_id(db.clone()).await;
+    let book_id = get_book_id(db.clone())
+        .await
+        .expect("failed to edit a book");
     let delete_book_route = warp::path!("book" / String)
         .and(warp::delete())
         .and(with_db(db.clone()))

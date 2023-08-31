@@ -86,7 +86,9 @@ mod tests {
     #[tokio::test]
     async fn test_delete_book_handle() {
         let db = db::DB::init().await.expect("failed to initialize mongodb");
-        let book_id = get_book_id(db.clone()).await;
+        let book_id = get_book_id(db.clone())
+            .await
+            .expect("could not get book id");
 
         let result = delete_book_handle(book_id, db.clone())
             .await
@@ -98,7 +100,9 @@ mod tests {
     #[tokio::test]
     async fn test_edit_book_handle() {
         let db = db::DB::init().await.expect("failed to initialize mongodb");
-        let book_id = get_book_id(db.clone()).await;
+        let book_id = get_book_id(db.clone())
+            .await
+            .expect("could not get book id");
 
         let result = edit_book_handle(book_id, edit_book(), db.clone())
             .await

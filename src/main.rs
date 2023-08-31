@@ -30,7 +30,7 @@ async fn main() -> Result<(), Rejection> {
             .and(with_db(db.clone()))
             .and_then(handlers::fetch_books_handle));
 
-    let routes = book_routes.recover(errors::_handle_rejection);
+    let routes = book_routes.recover(errors::handle_rejection);
 
     println!("Started on port 8080");
     Ok(warp::serve(routes).run(([127, 0, 0, 1], 8080)).await)

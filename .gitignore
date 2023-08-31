@@ -15,4 +15,3 @@ target/
 
 # Environmental variables
 .env
-.editorconfig

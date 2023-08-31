@@ -9,13 +9,19 @@ pub enum MongoDbErrors {
     #[error("mongodb error: {0}")]
     MongoError(#[from] mongodb::error::Error),
     #[error("mongodb query error: {0}")]
-    MongoQueryError(mongodb::error::Error),
+    InvalidQuery(mongodb::error::Error),
     #[error("mongodb data access error: {0}")]
-    MongoDataError(#[from] bson::document::ValueAccessError),
+    InvalidData(#[from] bson::document::ValueAccessError),
     #[error("invalid record id: {0}")]
-    InvalidIdError(String),
+    InvalidId(String),
     #[error("invalid number of pages: {0}")]
-    InvalidNumberPagesError(ParseIntError),
+    InvalidNumberPages(ParseIntError),
+    #[error("mongodb url not found")]
+    InvalidURL,
+    #[error("mongodb name not found")]
+    InvalidDbName,
+    #[error("mongodb collection not found")]
+    InvalidCollection,
 }
 
 #[derive(Serialize)]
@@ -25,7 +31,8 @@ struct ErrorResponse {
 
 impl Reject for MongoDbErrors {}
 
-pub async fn _handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
+#[allow(dead_code)]
+pub async fn handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> {
     let (code, message) = match () {
         _ if err.is_not_found() => (StatusCode::NOT_FOUND, "Error not found"),
         _ if err

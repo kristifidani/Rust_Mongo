@@ -11,31 +11,33 @@ pub struct DB {
 
 impl DB {
     pub async fn init() -> Result<Self, MongoDbErrors> {
-        let client = DB::create_mongodb_client().await?;
+        let client = DB::create_mongodb_client().await??;
         Ok(Self { client })
     }
 
-    async fn create_mongodb_client() -> mongodb::error::Result<Client> {
+    async fn create_mongodb_client() -> Result<mongodb::error::Result<Client>, MongoDbErrors> {
         dotenv().ok();
-        let mongodb_url = dotenv::var("DB_URL").expect("mongodb url not found");
+        let mongodb_url = dotenv::var("DB_URL").map_err(|_| MongoDbErrors::InvalidURL)?;
         let mut client_options = ClientOptions::parse(mongodb_url).await?;
         client_options.app_name = Some("library".to_string());
-        Client::with_options(client_options)
+        Ok(Client::with_options(client_options))
     }
 
-    fn get_collection(&self) -> Collection<Document> {
-        let mongodb_name = dotenv::var("DB_NAME").expect("mongodb name not found");
-        let mongodb_collection = dotenv::var("COLLECTION").expect("mongodb collection not found");
-        self.client
+    fn get_collection(&self) -> Result<Collection<Document>, MongoDbErrors> {
+        let mongodb_name = dotenv::var("DB_NAME").map_err(|_| MongoDbErrors::InvalidDbName)?;
+        let mongodb_collection =
+            dotenv::var("COLLECTION").map_err(|_| MongoDbErrors::InvalidCollection)?;
+        Ok(self
+            .client
             .database(mongodb_name.as_str())
-            .collection(mongodb_collection.as_str())
+            .collection(mongodb_collection.as_str()))
     }
 
     pub async fn create_book(&self, book: &Book) -> Result<Book, MongoDbErrors> {
         let number_pages = book
             .number_pages
             .parse::<i32>()
-            .map_err(|e| MongoDbErrors::InvalidNumberPagesError(e))?;
+            .map_err(|int_parse_error| MongoDbErrors::InvalidNumberPages(int_parse_error))?;
 
         let record = doc! {
             "NAME": book.name.clone(),
@@ -44,7 +46,7 @@ impl DB {
             "TAGS": book.tags.clone()
         };
 
-        match self.get_collection().insert_one(record, None).await {
+        match self.get_collection()?.insert_one(record, None).await {
             Ok(inserted_record) => {
                 if let Some(inserted_id) = inserted_record.inserted_id.as_object_id() {
                     Ok(Book {
@@ -55,21 +57,21 @@ impl DB {
                         tags: book.tags.clone(),
                     })
                 } else {
-                    Err(MongoDbErrors::InvalidIdError(
+                    Err(MongoDbErrors::InvalidId(
                         "Failed to extract the inserted book ID".to_string(),
                     ))
                 }
             }
-            Err(e) => Err(MongoDbErrors::MongoQueryError(e)),
+            Err(mongo_error) => Err(MongoDbErrors::InvalidQuery(mongo_error)),
         }
     }
 
     pub async fn fetch_books(&self) -> Result<Vec<Book>, MongoDbErrors> {
         let mut cursor = self
-            .get_collection()
+            .get_collection()?
             .find(None, None)
             .await
-            .map_err(|e| MongoDbErrors::MongoQueryError(e))?;
+            .map_err(|mongo_error| MongoDbErrors::InvalidQuery(mongo_error))?;
 
         let mut result: Vec<Book> = Vec::new();
         while let Some(doc) = cursor.next().await {
@@ -79,31 +81,33 @@ impl DB {
     }
 
     pub async fn delete_book(&self, id: &str) -> Result<String, MongoDbErrors> {
-        let book_id =
-            ObjectId::parse_str(id).map_err(|_| MongoDbErrors::InvalidIdError(id.to_owned()))?;
+        let book_id = ObjectId::parse_str(id).map_err(|obj_id_parse_error| {
+            MongoDbErrors::InvalidId(obj_id_parse_error.to_string())
+        })?;
 
         let filter = doc! {
             "_id": book_id,
         };
 
-        match self.get_collection().delete_one(filter, None).await {
+        match self.get_collection()?.delete_one(filter, None).await {
             Ok(result) => {
                 if result.deleted_count > 0 {
                     Ok(id.to_string())
                 } else {
-                    Err(MongoDbErrors::InvalidIdError(format!(
+                    Err(MongoDbErrors::InvalidId(format!(
                         "Failed to delete book with id {}",
                         id
                     )))
                 }
             }
-            Err(e) => Err(MongoDbErrors::MongoQueryError(e)),
+            Err(mongo_error) => Err(MongoDbErrors::InvalidQuery(mongo_error)),
         }
     }
 
     pub async fn edit_book(&self, id: &str, book: &Book) -> Result<Book, MongoDbErrors> {
-        let book_id =
-            ObjectId::parse_str(id).map_err(|_| MongoDbErrors::InvalidIdError(id.to_owned()))?;
+        let book_id = ObjectId::parse_str(id).map_err(|obj_id_parse_error| {
+            MongoDbErrors::InvalidId(obj_id_parse_error.to_string())
+        })?;
         let filter = doc! {
             "_id": book_id,
         };
@@ -111,7 +115,7 @@ impl DB {
         let number_pages = book
             .number_pages
             .parse::<i32>()
-            .map_err(|e| MongoDbErrors::InvalidNumberPagesError(e))?;
+            .map_err(|int_parse_error| MongoDbErrors::InvalidNumberPages(int_parse_error))?;
 
         let doc = doc! {
             "$set": {
@@ -122,7 +126,7 @@ impl DB {
             }
         };
 
-        match self.get_collection().update_one(filter, doc, None).await {
+        match self.get_collection()?.update_one(filter, doc, None).await {
             Ok(result) => {
                 if result.modified_count > 0 {
                     Ok(Book {
@@ -133,13 +137,13 @@ impl DB {
                         tags: book.tags.clone(),
                     })
                 } else {
-                    Err(MongoDbErrors::InvalidIdError(format!(
+                    Err(MongoDbErrors::InvalidId(format!(
                         "Failed to update book with id {}",
                         id
                     )))
                 }
             }
-            Err(e) => Err(MongoDbErrors::MongoQueryError(e)),
+            Err(mongo_error) => Err(MongoDbErrors::InvalidQuery(mongo_error)),
         }
     }
 
