@@ -1,6 +1,7 @@
 mod db;
 mod errors;
 mod handlers;
+mod utils;
 
 use crate::db::DB;
 use std::convert::Infallible;

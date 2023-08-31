@@ -35,16 +35,12 @@ pub async fn _handle_rejection(err: Rejection) -> Result<impl Reply, Rejection> 
             (StatusCode::BAD_REQUEST, "Invalid request")
         }
         _ if err.find::<MongoDbErrors>().is_some() => {
-            println!("not handled application error: {:?}", err);
             (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
         }
         _ if err.find::<warp::reject::MethodNotAllowed>().is_some() => {
             (StatusCode::METHOD_NOT_ALLOWED, "Method not allowed")
         }
-        _ => {
-            println!("not handled error: {:?}", err);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error")
-        }
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"),
     };
 
     let error_message = reply::json(&ErrorResponse {
