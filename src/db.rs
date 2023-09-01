@@ -11,16 +11,18 @@ pub struct DB {
 
 impl DB {
     pub async fn init() -> Result<Self, MongoDbErrors> {
-        let client = DB::create_mongodb_client().await??;
+        let client = DB::create_mongodb_client().await?;
         Ok(Self { client })
     }
 
-    async fn create_mongodb_client() -> Result<mongodb::error::Result<Client>, MongoDbErrors> {
+    async fn create_mongodb_client() -> Result<Client, MongoDbErrors> {
         dotenv().ok();
         let mongodb_url = dotenv::var("DB_URL").map_err(|_| MongoDbErrors::InvalidURL)?;
         let mut client_options = ClientOptions::parse(mongodb_url).await?;
-        client_options.app_name = Some("library".to_string());
-        Ok(Client::with_options(client_options))
+        let mongodb_name = dotenv::var("DB_NAME").map_err(|_| MongoDbErrors::InvalidDbName)?;
+        client_options.app_name = Some(mongodb_name);
+        Ok(Client::with_options(client_options)
+            .map_err(|client_error| MongoDbErrors::ClientError(client_error.to_string()))?)
     }
 
     fn get_collection(&self) -> Result<Collection<Document>, MongoDbErrors> {

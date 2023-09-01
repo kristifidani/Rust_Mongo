@@ -22,6 +22,8 @@ pub enum MongoDbErrors {
     InvalidDbName,
     #[error("mongodb collection not found")]
     InvalidCollection,
+    #[error("failed to create mongo client: {0}")]
+    ClientError(String),
 }
 
 #[derive(Serialize)]
